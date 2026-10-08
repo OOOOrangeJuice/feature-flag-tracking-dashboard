@@ -282,13 +282,64 @@
     .week-nav button:disabled { color: var(--cp-border-strong); cursor: not-allowed; }
     .week-chip { min-width: 140px; text-align: center; color: var(--cp-text-muted); font-size: 12px; }
     .week-chip strong { display: block; color: var(--cp-text); font-size: 14px; }
+    .impact-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface-soft);
+    }
+    .impact-stat { min-width: 0; }
+    .impact-stat span { display: block; color: var(--cp-text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .impact-stat strong { display: block; margin-top: 4px; font-size: 18px; }
     .engineer-chart { display: grid; gap: 16px; }
     .engineer-row { display: grid; grid-template-columns: 120px 1fr 76px; align-items: center; gap: 16px; }
-    .engineer-name { font-size: 13px; font-weight: 600; }
+    .engineer-name {
+      width: fit-content;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--cp-link);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+    }
+    .engineer-name:hover, .engineer-name:focus-visible { color: var(--cp-accent); }
     .engineer-award { display: inline-block; margin-left: 4px; font-size: 16px; }
     .person-bar { display: flex; height: 24px; overflow: hidden; border-radius: 6px; background: var(--cp-surface-soft); }
     .person-bar .complete { background: var(--st-complete); }
     .person-total { text-align: right; font-size: 15px; font-weight: 700; }
+    .engineer-detail {
+      grid-column: 1 / -1;
+      margin-top: -4px;
+      padding: 16px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-bg-elevated);
+    }
+    .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .detail-head strong { font-size: 14px; }
+    .detail-head span { color: var(--cp-text-muted); font-size: 12px; }
+    .nomination-status { color: var(--cp-accent) !important; font-weight: 700; text-align: right; }
+    .nomination-track { height: 10px; margin: 12px 0 8px; overflow: hidden; border-radius: 0.625rem; background: var(--cp-surface-soft); }
+    .nomination-fill { height: 100%; background: var(--cp-accent); }
+    .nomination-copy { display: flex; justify-content: space-between; gap: 12px; color: var(--cp-text-muted); font-size: 12px; }
+    .star-weeks { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; margin-top: 16px; }
+    .star-week {
+      padding: 8px 6px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text-muted);
+      font-size: 11px;
+      text-align: center;
+    }
+    .star-week strong { display: block; margin-bottom: 3px; color: var(--cp-text); font-size: 14px; }
+    .star-week.earned { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
     .info { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
     .info-btn {
       width: 16px;
@@ -350,6 +401,9 @@
       .card-heading { flex-direction: column; align-items: flex-start; }
       .donut-wrap { width: 220px; height: 220px; }
       .engineer-row { grid-template-columns: 100px 1fr 68px; gap: 8px; }
+      .impact-summary { grid-template-columns: 1fr; }
+      .detail-head, .nomination-copy { flex-direction: column; }
+      .nomination-status { text-align: left; }
     }
     @media (prefers-reduced-motion: reduce) {
       .seg, .popover { transition: none; }
@@ -359,13 +413,14 @@
 <body>
   <main class="shell">
     <nav class="page-nav" aria-label="Project views">
-      <a href="index.html" aria-current="page">Tracking dashboard · Demo</a>
+      <a href="index.html">Cleanup map</a>
+      <a href="dashboard.html" aria-current="page">Tracking dashboard</a>
     </nav>
 
     <header>
       <div>
         <h1>Feature Flag Tracking Dashboard</h1>
-        <p class="subtitle">Tracking the 314 remaining 1JS-related flags from ADO item creation through stakeholder review and final removal. Public demo — all data is fictional.</p>
+        <p class="subtitle">Tracking the 314 remaining 1JS-related flags from ADO item creation through stakeholder review and final removal.</p>
       </div>
       <div class="as-of">Cycle window<strong>Sep 28, 2026 — Jan 8, 2027</strong></div>
     </header>
@@ -436,13 +491,18 @@
         <div class="card-body">
           <div class="card-heading">
             <div>
-              <h2 id="engineers-title">Contribution by Engineer<span class="info below" id="engineer-info"><button type="button" class="info-btn" aria-label="How engineer targets are calculated" aria-expanded="false" aria-describedby="engineer-info-tip">!</button><span class="info-tip" id="engineer-info-tip" role="tooltip"><p><strong>Target</strong> = weekly pace ÷ 4 engineers, rounded up.</p><p>Full bar = weekly removal target; fill = complete ÷ target.</p><p>⭐ = completed removals reached the target.</p></span></span></h2>
+              <h2 id="engineers-title">Engineer Impact<span class="info below" id="engineer-info"><button type="button" class="info-btn" aria-label="How engineer impact is calculated" aria-expanded="false" aria-describedby="engineer-info-tip">!</button><span class="info-tip" id="engineer-info-tip" role="tooltip"><p><strong>Weekly star</strong> = the engineer completed that week&rsquo;s removal target.</p><p>Engineers stay in a fixed order; completed-item counts are not used for ranking.</p><p><strong>Impact nomination</strong> = stars in at least 90% of eligible weeks. Thanksgiving week and the two Christmas weeks are excluded.</p></span></span></h2>
             </div>
             <div class="week-nav" aria-label="Select reporting week">
               <button id="prev-week" aria-label="Previous week">←</button>
               <div class="week-chip"><strong id="week-name">Week 2</strong><span id="week-range">Oct 5 — Oct 11</span></div>
               <button id="next-week" aria-label="Next week">→</button>
             </div>
+          </div>
+          <div class="impact-summary" aria-label="Impact nomination rules">
+            <div class="impact-stat"><span>Eligible weeks remaining</span><strong id="eligible-weeks">—</strong></div>
+            <div class="impact-stat"><span>Stars required</span><strong id="stars-required">—</strong></div>
+            <div class="impact-stat"><span>Nomination award</span><strong>$250</strong></div>
           </div>
           <div class="engineer-chart" id="engineer-chart"></div>
         </div>
@@ -455,6 +515,7 @@
     const CYCLE_START = new Date(2026, 8, 28);
     const CYCLE_END = new Date(2027, 0, 8);
     const HOLIDAYS = new Set(["2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25", "2027-01-01"]);
+    const EXCLUDED_NOMINATION_WEEKS = new Set(["2026-11-23", "2026-12-21", "2026-12-28"]);
     const engineerNames = ["Engineer 1", "Engineer 2", "Engineer 3", "Engineer 4"];
     const demoWeeks = [
       { engineers: [[5, 3], [4, 4], [6, 2], [3, 3]], remainingAtStart: 314 },
@@ -472,6 +533,15 @@
     function isWorkday(date) {
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       return date.getDay() !== 0 && date.getDay() !== 6 && !HOLIDAYS.has(key);
+    }
+
+    function dateKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function startOfWeek(date) {
+      const day = localDay(date);
+      return addDays(day, day.getDay() === 0 ? -6 : 1 - day.getDay());
     }
 
     function countWorkdays(start, end) {
@@ -672,17 +742,44 @@
     const initialToday = localDay(new Date());
     const currentWeek = weeks.findIndex(week => week.start <= initialToday && initialToday <= week.end);
     let selectedWeek = currentWeek >= 0 ? currentWeek : initialToday < CYCLE_START ? 0 : weeks.length - 1;
+    const nominationStart = startOfWeek(initialToday < CYCLE_START ? CYCLE_START : initialToday);
+    const nominationWeeks = weeks.filter(week =>
+      week.start >= nominationStart &&
+      week.start <= CYCLE_END &&
+      !EXCLUDED_NOMINATION_WEEKS.has(dateKey(week.start))
+    );
+    const nominationTarget = Math.ceil(nominationWeeks.length * .9);
+    document.getElementById("eligible-weeks").textContent = nominationWeeks.length;
+    document.getElementById("stars-required").textContent = `${nominationTarget} / ${nominationWeeks.length}`;
     const engineerChart = document.getElementById("engineer-chart");
     const prevButton = document.getElementById("prev-week");
     const nextButton = document.getElementById("next-week");
+    let expandedEngineer = null;
+
+    function getEngineerNomination(index, today) {
+      const results = nominationWeeks.map(week => {
+        const { target } = getWeekTarget(week, today);
+        const complete = week.engineers[index][1];
+        const isFuture = week.start > today;
+        return {
+          week,
+          target,
+          complete,
+          earned: !isFuture && target !== null && target > 0 && complete >= target,
+          isFuture
+        };
+      });
+      return { results, earned: results.filter(result => result.earned).length };
+    }
 
     function renderEngineerWeek() {
       const week = weeks[selectedWeek];
-      const { target } = getWeekTarget(week, localDay(new Date()));
+      const today = localDay(new Date());
+      const { target } = getWeekTarget(week, today);
       engineerChart.innerHTML = "";
       const contributions = week.engineers.map(([progress, complete], index) => ({
         progress, complete, index, total: progress + complete
-      })).sort((a, b) => b.total - a.total || a.index - b.index);
+      }));
       contributions.forEach(({ complete, index }) => {
         const fillPercentage = target !== null && target > 0
           ? Math.min(complete / target * 100, 100) : 0;
@@ -692,12 +789,42 @@
           : "";
         const row = document.createElement("div");
         row.className = "engineer-row";
+        const isExpanded = expandedEngineer === index;
         row.innerHTML = `
-          <div class="engineer-name">${engineerNames[index]}${award}</div>
+          <button type="button" class="engineer-name" aria-expanded="${isExpanded}" aria-controls="engineer-detail-${index}">${engineerNames[index]}${award}</button>
           <div class="person-bar" title="${completionLabel}" aria-label="${engineerNames[index]}: ${completionLabel}">
             <span class="complete" style="width:${fillPercentage}%"></span>
           </div>
           <div class="person-total" aria-label="${complete} removals complete out of ${target === null ? "unavailable target" : `${target} required`}">${complete} / ${target === null ? "—" : target}</div>`;
+        row.querySelector(".engineer-name").addEventListener("click", () => {
+          expandedEngineer = expandedEngineer === index ? null : index;
+          renderEngineerWeek();
+        });
+        if (isExpanded) {
+          const nomination = getEngineerNomination(index, today);
+          const achieved = nomination.earned >= nominationTarget;
+          const progress = nominationTarget === 0 ? 100 : Math.min(nomination.earned / nominationTarget * 100, 100);
+          const detail = document.createElement("div");
+          detail.className = "engineer-detail";
+          detail.id = `engineer-detail-${index}`;
+          detail.innerHTML = `
+            <div class="detail-head">
+              <div><strong>${engineerNames[index]} nomination progress</strong><br><span>Earn a star by completing the weekly target.</span></div>
+              <span class="nomination-status">${achieved ? "Impact nomination earned · $250" : `${Math.max(nominationTarget - nomination.earned, 0)} more stars needed`}</span>
+            </div>
+            <div class="nomination-track" role="progressbar" aria-label="${engineerNames[index]} nomination progress" aria-valuemin="0" aria-valuemax="${nominationTarget}" aria-valuenow="${nomination.earned}">
+              <div class="nomination-fill" style="width:${progress}%"></div>
+            </div>
+            <div class="nomination-copy"><span>${nomination.earned} of ${nominationTarget} required stars earned</span><span>90% of ${nominationWeeks.length} eligible weeks</span></div>
+            <div class="star-weeks">
+              ${nomination.results.map(result => {
+                const status = result.earned ? "⭐" : result.isFuture ? "Upcoming" : "Not earned";
+                const detailText = result.isFuture || result.target === null ? status : `${result.complete} / ${result.target}`;
+                return `<div class="star-week ${result.earned ? "earned" : ""}"><strong>${result.earned ? "⭐" : "○"}</strong>${result.week.range}<br>${detailText}</div>`;
+              }).join("")}
+            </div>`;
+          row.appendChild(detail);
+        }
         engineerChart.appendChild(row);
       });
       document.getElementById("week-name").textContent = week.name;
