@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feature Flag Cleanup Tracking Dashboard</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+    /* Single-hue status palette derived from the accent */
+    :root, html[data-theme="dark"] {
+      --st-complete: var(--cp-accent);
+      --st-progress: color-mix(in srgb, var(--cp-accent) 38%, var(--cp-surface));
+      --st-new: var(--cp-border);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button { font: inherit; }
+    a { color: inherit; }
+    .shell { max-width: 1480px; margin: 0 auto; padding: 32px; }
+    .page-nav {
+      display: flex;
+      gap: 4px;
+      width: fit-content;
+      margin-bottom: 28px;
+      padding: 4px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+    }
+    .page-nav a {
+      padding: 8px 12px;
+      border-radius: 0.625rem;
+      color: var(--cp-text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .page-nav a:hover { color: var(--cp-accent); }
+    .page-nav a[aria-current="page"] { background: var(--cp-accent-soft); color: var(--cp-accent); }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .eyebrow, .section-kicker {
+      margin: 0 0 8px;
+      color: var(--cp-accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 48px); line-height: 1.05; letter-spacing: -.03em; }
+    .subtitle { max-width: 760px; margin: 12px 0 0; color: var(--cp-text-muted); font-size: 16px; line-height: 1.55; }
+    .as-of {
+      flex: none;
+      padding: 10px 14px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text-muted);
+      font-size: 13px;
+    }
+    .as-of strong { display: block; margin-top: 2px; color: var(--cp-text); font-size: 15px; }
+    .stack-layout { display: grid; gap: 16px; }
+    .card {
+      min-width: 0;
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      background: var(--cp-surface);
+      box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+    }
+    .card-body { padding: 24px; }
+    .card-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    h2 { margin: 0; font-size: 20px; letter-spacing: -.015em; }
+    .status-key { display: flex; flex-wrap: wrap; gap: 16px; color: var(--cp-text-muted); font-size: 12px; }
+    .key { display: inline-flex; align-items: center; gap: 7px; }
+    .swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--st-new); }
+    .swatch.progress { background: var(--st-progress); }
+    .swatch.complete { background: var(--st-complete); }
+
+    /* Overview: donut + execution health */
+    .overview-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(320px, 1fr); }
+    .overview-grid > div { padding: 24px 32px; }
+    .overview-grid > div + div { border-left: 1px solid var(--cp-border); }
+    .donut-area { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .donut-wrap { position: relative; width: 260px; height: 260px; }
+    .donut { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+    .seg {
+      fill: none;
+      stroke-width: 34;
+      cursor: pointer;
+      transition: stroke-width 140ms ease, opacity 140ms ease;
+      outline: none;
+    }
+    .seg.new { stroke: var(--st-new); }
+    .seg.progress { stroke: var(--st-progress); }
+    .seg.complete { stroke: var(--st-complete); }
+    .seg:hover, .seg:focus-visible, .seg.active { stroke-width: 42; }
+    .donut.has-active .seg:not(.active) { opacity: .45; }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      text-align: center;
+      pointer-events: none;
+    }
+    .donut-center strong { font-size: 44px; line-height: 1; letter-spacing: -.04em; }
+    .donut-center span { margin-top: 6px; color: var(--cp-text-muted); font-size: 12px; }
+    .popover {
+      position: absolute;
+      z-index: 5;
+      min-width: 190px;
+      padding: 12px 14px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-panel-strong);
+      box-shadow: var(--cp-shadow);
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    .popover.show { opacity: 1; transform: translateY(0); }
+    .popover-title { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 13px; }
+    .popover-value { margin-top: 8px; font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+    .popover-value small { margin-left: 6px; color: var(--cp-text-muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+    .popover-note { margin-top: 6px; color: var(--cp-text-muted); }
+    .hint { color: var(--cp-text-soft); font-size: 12px; }
+
+    .health-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .health-head h3 { margin: 0; font-size: 15px; }
+    .score {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 0.625rem;
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .score::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .health { --health-color: var(--cp-text-muted); }
+    .health[data-health="good"] { --health-color: var(--cp-success); }
+    .health[data-health="delayed"] { --health-color: var(--cp-warning); }
+    .health[data-health="at-risk"] { --health-color: var(--cp-danger); }
+    .health .score { color: var(--health-color); background: color-mix(in srgb, var(--health-color) 12%, var(--cp-surface)); }
+    .pace-table { width: 100%; border-collapse: collapse; }
+    .pace-table th, .pace-table td { padding: 13px 0; border-bottom: 1px solid var(--cp-border); text-align: left; font-size: 13px; }
+    .pace-table th { color: var(--cp-text-muted); font-weight: 500; }
+    .pace-table td { text-align: right; font-weight: 700; }
+    .pace-table tr:last-child th, .pace-table tr:last-child td { border-bottom: 0; }
+    .progress-track { height: 8px; margin: 18px 0 10px; overflow: hidden; border-radius: 0.625rem; background: var(--cp-surface-soft); }
+    .progress-fill { height: 100%; background: var(--health-color); }
+    .pace-note { margin: 0; color: var(--cp-text-muted); font-size: 12px; line-height: 1.5; }
+
+    /* Weekly chart */
+    .chart-shell { overflow-x: auto; }
+    .weekly-chart {
+      display: flex;
+      gap: 10px;
+      min-width: 820px;
+      height: 260px;
+      padding-top: 24px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+    .week-col {
+      flex: 1;
+      display: grid;
+      grid-template-rows: 1fr 28px;
+      gap: 8px;
+      min-width: 48px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      text-align: center;
+      cursor: pointer;
+    }
+    .week-col:disabled { cursor: default; }
+    .bar-space { display: flex; align-items: flex-end; justify-content: center; height: 100%; }
+    .bar {
+      position: relative;
+      display: flex;
+      flex-direction: column-reverse;
+      width: min(38px, 76%);
+      border-radius: 6px 6px 0 0;
+      overflow: visible;
+    }
+    .bar .segment:last-of-type { border-radius: 6px 6px 0 0; }
+    .segment.progress { background: var(--st-progress); }
+    .segment.complete { background: var(--st-complete); }
+    .bar-total { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; }
+    .week-label { align-self: center; color: var(--cp-text-muted); font-size: 11px; }
+    .week-col.future .bar { height: 2px !important; background: var(--cp-border); }
+    .week-col.selected .week-label { color: var(--cp-accent); font-weight: 700; }
+    .week-col:not(:disabled):hover .bar { opacity: .85; }
+
+    /* Engineers */
+    .week-nav { display: flex; align-items: center; gap: 8px; }
+    .week-nav button {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      cursor: pointer;
+    }
+    .week-nav button:hover:not(:disabled) { border-color: var(--cp-accent); color: var(--cp-accent); }
+    .week-nav button:disabled { color: var(--cp-border-strong); cursor: not-allowed; }
+    .week-chip { min-width: 140px; text-align: center; color: var(--cp-text-muted); font-size: 12px; }
+    .week-chip strong { display: block; color: var(--cp-text); font-size: 14px; }
+    .engineer-chart { display: grid; gap: 16px; }
+    .engineer-row { display: grid; grid-template-columns: 120px 1fr 76px; align-items: center; gap: 16px; }
+    .engineer-name { font-size: 13px; font-weight: 600; }
+    .engineer-award { display: inline-block; margin-left: 4px; font-size: 16px; }
+    .person-bar { display: flex; height: 24px; overflow: hidden; border-radius: 6px; background: var(--cp-surface-soft); }
+    .person-bar .complete { background: var(--st-complete); }
+    .person-total { text-align: right; font-size: 15px; font-weight: 700; }
+    .target-note { margin: 16px 0 0; color: var(--cp-text-soft); font-size: 12px; line-height: 1.5; }
+    .empty { color: var(--cp-text-soft); font-size: 13px; }
+
+    @media (max-width: 900px) {
+      .shell { padding: 20px 12px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .overview-grid > div + div { border-left: 0; border-top: 1px solid var(--cp-border); }
+      .overview-grid > div { padding: 20px; }
+    }
+    @media (max-width: 520px) {
+      .card-body { padding: 18px; }
+      .card-heading { flex-direction: column; align-items: flex-start; }
+      .donut-wrap { width: 220px; height: 220px; }
+      .engineer-row { grid-template-columns: 100px 1fr 68px; gap: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .seg, .popover { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav" aria-label="Project views">
+      <a href="index.html" aria-current="page">Tracking dashboard · Demo</a>
+    </nav>
+
+    <header>
+      <div>
+        <p class="eyebrow">1JS cleanup · cycle execution</p>
+        <h1>Feature flag tracking dashboard</h1>
+        <p class="subtitle">Tracking the 314 remaining 1JS-related flags from ADO item creation through stakeholder review and final removal. Public demo — all data is fictional.</p>
+      </div>
+      <div class="as-of">Cycle window<strong>Sep 28, 2026 — Jan 8, 2027</strong></div>
+    </header>
+
+    <div class="stack-layout">
+      <section class="card" aria-labelledby="overview-title">
+        <div class="card-body" style="padding-bottom:0">
+          <div class="card-heading" style="margin-bottom:0">
+            <div>
+              <p class="section-kicker">Portfolio status</p>
+              <h2 id="overview-title">Overall cleanup progress</h2>
+            </div>
+            <div class="status-key" aria-label="Status legend">
+              <span class="key"><i class="swatch"></i>New</span>
+              <span class="key"><i class="swatch progress"></i>In Progress</span>
+              <span class="key"><i class="swatch complete"></i>Complete</span>
+            </div>
+          </div>
+        </div>
+        <div class="overview-grid">
+          <div class="donut-area">
+            <div class="donut-wrap" id="donut-wrap">
+              <svg class="donut" id="donut" viewBox="0 0 200 200" role="group" aria-label="Flag status breakdown"></svg>
+              <div class="donut-center"><strong>314</strong><span>flags this cycle</span></div>
+              <div class="popover" id="popover" role="status" aria-live="polite"></div>
+            </div>
+            <span class="hint">Hover over a segment for details</span>
+          </div>
+          <div class="health" id="execution-health">
+            <div class="health-head">
+              <h3>Execution health</h3>
+              <span class="score" id="health-score"></span>
+            </div>
+            <table class="pace-table">
+              <tbody>
+                <tr><th scope="row">Elapsed cycle</th><td id="elapsed-cycle"></td></tr>
+                <tr><th scope="row">Minimum complete by today</th><td id="expected-complete"></td></tr>
+                <tr><th scope="row">Actually complete</th><td id="actual-complete"></td></tr>
+                <tr><th scope="row">Gap to plan</th><td id="gap-to-plan"></td></tr>
+                <tr><th scope="row">Remaining flags</th><td id="remaining-flags"></td></tr>
+                <tr><th scope="row">Remaining time</th><td id="remaining-time"></td></tr>
+                <tr><th scope="row">Required weekly pace</th><td id="required-weekly-pace"></td></tr>
+              </tbody>
+            </table>
+            <div class="progress-track" id="health-progress"><div class="progress-fill" id="health-progress-fill"></div></div>
+            <p class="pace-note"><span id="plan-percentage"></span> of plan. <strong>Good</strong> ≥ 100% · <strong>Delayed</strong> ≥ 80% and &lt; 100% · <strong>At Risk</strong> &lt; 80%.</p>
+            <p class="target-note">Weekly pace = remaining flags ÷ remaining workdays × 5, rounded up. Today included; Mon–Fri, excluding Nov 26–27, Dec 24–25 and Jan 1. Demo data, not connected to ADO.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="weekly-title">
+        <div class="card-body">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Weekly throughput</p>
+              <h2 id="weekly-title">ADO items created by week</h2>
+            </div>
+            <div class="status-key">
+              <span class="key"><i class="swatch progress"></i>In Progress</span>
+              <span class="key"><i class="swatch complete"></i>Complete</span>
+            </div>
+          </div>
+          <div class="chart-shell">
+            <div class="weekly-chart" id="weekly-chart" aria-label="Weekly ADO items created"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="engineers-title">
+        <div class="card-body">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Engineer contribution</p>
+              <h2 id="engineers-title">Contribution by engineer</h2>
+            </div>
+            <div class="week-nav" aria-label="Select reporting week">
+              <button id="prev-week" aria-label="Previous week">←</button>
+              <div class="week-chip"><strong id="week-name">Week 2</strong><span id="week-range">Oct 5 — Oct 11</span></div>
+              <button id="next-week" aria-label="Next week">→</button>
+            </div>
+          </div>
+          <div class="engineer-chart" id="engineer-chart"></div>
+          <p class="target-note" id="engineer-target-note"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const TOTAL = 314;
+    const CYCLE_START = new Date(2026, 8, 28);
+    const CYCLE_END = new Date(2027, 0, 8);
+    const HOLIDAYS = new Set(["2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25", "2027-01-01"]);
+    const engineerNames = ["Engineer 1", "Engineer 2", "Engineer 3", "Engineer 4"];
+    const demoWeeks = [
+      { engineers: [[5, 3], [4, 4], [6, 2], [3, 3]], remainingAtStart: 314 },
+      { engineers: [[8, 10], [7, 1], [8, 2], [6, 1]], remainingAtStart: 302 }
+    ];
+
+    function localDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+    }
+
+    function isWorkday(date) {
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      return date.getDay() !== 0 && date.getDay() !== 6 && !HOLIDAYS.has(key);
+    }
+
+    function countWorkdays(start, end) {
+      let count = 0;
+      for (let day = localDay(start); day <= end; day = addDays(day, 1)) {
+        if (isWorkday(day)) count += 1;
+      }
+      return count;
+    }
+
+    const formatDate = date => date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const reportingWeeks = [];
+    for (let start = CYCLE_START; start <= CYCLE_END;) {
+      const sunday = addDays(start, (7 - start.getDay()) % 7);
+      const end = sunday < CYCLE_END ? sunday : CYCLE_END;
+      reportingWeeks.push({ start, end, range: `${formatDate(start)} — ${formatDate(end)}` });
+      start = addDays(end, 1);
+    }
+    const weeks = reportingWeeks.map((dates, i) => {
+      const w = demoWeeks[i] || {};
+      const engineers = w.engineers || [[0, 0], [0, 0], [0, 0], [0, 0]];
+      const progress = engineers.reduce((sum, e) => sum + e[0], 0);
+      const complete = engineers.reduce((sum, e) => sum + e[1], 0);
+      return { ...dates, ...w, name: `Week ${i + 1}`, engineers, progress, complete, total: progress + complete };
+    });
+    const completedFlags = weeks.reduce((sum, week) => sum + week.complete, 0);
+    const inProgressFlags = weeks.reduce((sum, week) => sum + week.progress, 0);
+    const statuses = [
+      { key: "complete", label: "Complete", value: completedFlags, note: "Removal approved and landed" },
+      { key: "progress", label: "In Progress", value: inProgressFlags, note: "ADO created · awaiting removal" },
+      { key: "new", label: "New", value: TOTAL - completedFlags - inProgressFlags, note: "No ADO item created yet" }
+    ];
+    function calculatePace(remaining, date) {
+      const start = date < CYCLE_START ? CYCLE_START : localDay(date);
+      const workdays = countWorkdays(start, CYCLE_END);
+      const weeklyRate = workdays > 0 ? remaining * 5 / workdays : null;
+      return {
+        remaining, workdays,
+        weeklyTarget: remaining === 0 ? 0 : weeklyRate === null ? null : Math.ceil(weeklyRate),
+        engineerTarget: remaining === 0 ? 0 : weeklyRate === null ? null : Math.ceil(weeklyRate / engineerNames.length)
+      };
+    }
+
+    function getWeekTarget(week, today) {
+      if (week.end < today) {
+        if (week.remainingAtStart === undefined) {
+          return { target: null, note: "Historical week-start snapshot unavailable; target and awards cannot be calculated." };
+        }
+        const pace = calculatePace(week.remainingAtStart, week.start);
+        return { target: pace.engineerTarget, note: `Historical target · ${formatDate(week.start)} snapshot: ${week.remainingAtStart} remaining flags, ${pace.workdays} workdays.` };
+      }
+      const pace = calculatePace(TOTAL - completedFlags, today);
+      const note = week.start > today ? "Future week · projected from today's pace." : `Live target · as of ${formatDate(today)}.`;
+      return { target: pace.engineerTarget, note };
+    }
+
+    function getExecutionHealth(actual, expected) {
+      if (actual >= expected) return { key: "good", label: "Good" };
+      if (actual >= expected * .8) return { key: "delayed", label: "Delayed" };
+      return { key: "at-risk", label: "At Risk" };
+    }
+
+    function renderExecutionHealth(actual, expected) {
+      const health = getExecutionHealth(actual, expected);
+      const percentage = expected === 0 ? 100 : actual / expected * 100;
+      const formattedPercentage = `${Number(percentage.toFixed(1))}%`;
+      const gap = actual - expected;
+      document.getElementById("execution-health").dataset.health = health.key;
+      document.getElementById("health-score").textContent = health.label;
+      document.getElementById("expected-complete").textContent = expected;
+      document.getElementById("actual-complete").textContent = actual;
+      document.getElementById("gap-to-plan").textContent = gap > 0 ? `+${gap}` : gap;
+      document.getElementById("plan-percentage").textContent = formattedPercentage;
+      document.getElementById("health-progress").setAttribute("aria-label", `${formattedPercentage} of expected removals complete`);
+      document.getElementById("health-progress-fill").style.width = `${Math.min(percentage, 100)}%`;
+    }
+
+    function refreshExecutionHealth(today) {
+      const totalWorkdays = countWorkdays(CYCLE_START, CYCLE_END);
+      const elapsedEnd = today < CYCLE_END ? today : CYCLE_END;
+      const elapsedWorkdays = countWorkdays(CYCLE_START, elapsedEnd);
+      const expected = Math.ceil(TOTAL * elapsedWorkdays / totalWorkdays);
+      const pace = calculatePace(TOTAL - completedFlags, today);
+      renderExecutionHealth(completedFlags, expected);
+      document.getElementById("elapsed-cycle").textContent = `${elapsedWorkdays} / ${totalWorkdays} workdays`;
+      document.getElementById("remaining-flags").textContent = pace.remaining;
+      document.getElementById("remaining-time").textContent = `${pace.workdays} workdays`;
+      document.getElementById("required-weekly-pace").textContent = pace.weeklyTarget === null
+        ? "Overdue · no workdays remaining" : `${pace.weeklyTarget} / week`;
+    }
+
+    const donut = document.getElementById("donut");
+    const wrap = document.getElementById("donut-wrap");
+    const popover = document.getElementById("popover");
+    const R = 80;
+    const C = 2 * Math.PI * R;
+    const GAP = 1.2;
+    let offset = 0;
+    let activeKey = null;
+
+    statuses.forEach(s => {
+      const len = (s.value / TOTAL) * C;
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", 100);
+      circle.setAttribute("cy", 100);
+      circle.setAttribute("r", R);
+      circle.setAttribute("class", `seg ${s.key}`);
+      circle.setAttribute("stroke-dasharray", `${Math.max(len - GAP, 0)} ${C - len + GAP}`);
+      circle.setAttribute("stroke-dashoffset", -offset);
+      circle.setAttribute("tabindex", "0");
+      circle.setAttribute("role", "button");
+      circle.setAttribute("aria-label", `${s.label}: ${s.value} flags`);
+      s.mid = offset + len / 2;
+      offset += len;
+      circle.addEventListener("pointerenter", () => showPopover(s));
+      circle.addEventListener("pointerleave", () => {
+        if (activeKey === s.key && document.activeElement !== circle) closePopover();
+      });
+      circle.addEventListener("focus", () => showPopover(s));
+      circle.addEventListener("blur", () => {
+        if (activeKey === s.key && !circle.matches(":hover")) closePopover();
+      });
+      circle.addEventListener("click", e => { e.stopPropagation(); showPopover(s); });
+      circle.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPopover(s); }
+      });
+      donut.appendChild(circle);
+      s.el = circle;
+    });
+
+    function showPopover(s) {
+      activeKey = s.key;
+      statuses.forEach(x => x.el.classList.toggle("active", x === s));
+      donut.classList.add("has-active");
+      const pct = ((s.value / TOTAL) * 100).toFixed(1);
+      popover.innerHTML = `
+        <div class="popover-title"><i class="swatch ${s.key === "new" ? "" : s.key}"></i>${s.label}</div>
+        <div class="popover-value">${s.value}<small>${pct}%</small></div>
+        <div class="popover-note">${s.note}</div>`;
+      // Anchor beside the segment midpoint, clamped inside the donut column
+      const angle = (s.mid / C) * 2 * Math.PI - Math.PI / 2;
+      const scale = wrap.clientWidth / 200;
+      const outer = R + 21;
+      const ax = (100 + outer * Math.cos(angle)) * scale;
+      const ay = (100 + outer * Math.sin(angle)) * scale;
+      const w = popover.offsetWidth;
+      const h = popover.offsetHeight;
+      const area = wrap.parentElement.getBoundingClientRect();
+      const box = wrap.getBoundingClientRect();
+      const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+      const x = Math.cos(angle) < 0 ? ax - w - 14 : ax + 14;
+      popover.style.left = `${clamp(x, area.left - box.left + 8, area.right - box.left - w - 8)}px`;
+      popover.style.top = `${clamp(ay - h / 2, area.top - box.top, area.bottom - box.top - h)}px`;
+      popover.classList.add("show");
+    }
+
+    function closePopover() {
+      activeKey = null;
+      statuses.forEach(x => x.el.classList.remove("active"));
+      donut.classList.remove("has-active");
+      popover.classList.remove("show");
+    }
+    document.addEventListener("click", closePopover);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closePopover(); });
+
+    const weeklyChart = document.getElementById("weekly-chart");
+    const maxWeekly = Math.max(40, ...weeks.map(w => w.total));
+    const weekCols = weeks.map((week, index) => {
+      const col = document.createElement("button");
+      col.className = `week-col ${week.total === 0 ? "future" : ""}`;
+      col.disabled = week.total === 0;
+      col.setAttribute("aria-label", `${week.name}: ${week.total} items, ${week.progress} in progress, ${week.complete} complete`);
+      col.innerHTML = `
+        <div class="bar-space">
+          <div class="bar" style="height:${(week.total / maxWeekly) * 100}%">
+            ${week.total ? `<span class="bar-total">${week.total}</span>` : ""}
+            <span class="segment complete" style="height:${week.total ? (week.complete / week.total) * 100 : 0}%"></span>
+            <span class="segment progress" style="height:${week.total ? (week.progress / week.total) * 100 : 0}%"></span>
+          </div>
+        </div>
+        <div class="week-label">W${index + 1}</div>`;
+      col.addEventListener("click", () => { selectedWeek = index; renderEngineerWeek(); });
+      weeklyChart.appendChild(col);
+      return col;
+    });
+
+    const initialToday = localDay(new Date());
+    const currentWeek = weeks.findIndex(week => week.start <= initialToday && initialToday <= week.end);
+    let selectedWeek = currentWeek >= 0 ? currentWeek : initialToday < CYCLE_START ? 0 : weeks.length - 1;
+    const engineerChart = document.getElementById("engineer-chart");
+    const prevButton = document.getElementById("prev-week");
+    const nextButton = document.getElementById("next-week");
+
+    function renderEngineerWeek() {
+      const week = weeks[selectedWeek];
+      const { target, note } = getWeekTarget(week, localDay(new Date()));
+      engineerChart.innerHTML = "";
+      const contributions = week.engineers.map(([progress, complete], index) => ({
+        progress, complete, index, total: progress + complete
+      })).sort((a, b) => b.total - a.total || a.index - b.index);
+      contributions.forEach(({ complete, index }) => {
+        const fillPercentage = target !== null && target > 0
+          ? Math.min(complete / target * 100, 100) : 0;
+        const completionLabel = `${complete} removals complete · ${target === null ? "target unavailable" : `goal: ${target}`}`;
+        const award = target !== null && target > 0 && complete >= target
+          ? `<span class="engineer-award" role="img" aria-label="Weekly removal goal achieved: ${complete} of ${target}" title="${complete} removals complete · goal: ${target}">⭐</span>`
+          : "";
+        const row = document.createElement("div");
+        row.className = "engineer-row";
+        row.innerHTML = `
+          <div class="engineer-name">${engineerNames[index]}${award}</div>
+          <div class="person-bar" title="${completionLabel}" aria-label="${engineerNames[index]}: ${completionLabel}">
+            <span class="complete" style="width:${fillPercentage}%"></span>
+          </div>
+          <div class="person-total" aria-label="${complete} removals complete out of ${target === null ? "unavailable target" : `${target} required`}">${complete} / ${target === null ? "—" : target}</div>`;
+        engineerChart.appendChild(row);
+      });
+      document.getElementById("week-name").textContent = week.name;
+      document.getElementById("week-range").textContent = week.range;
+      weekCols.forEach((col, i) => col.classList.toggle("selected", i === selectedWeek));
+      prevButton.disabled = selectedWeek === 0;
+      nextButton.disabled = selectedWeek === weeks.length - 1;
+      document.getElementById("engineer-target-note").textContent = `Complete / target · Full bar = weekly removal goal. ${note} Individual target = weekly pace ÷ ${engineerNames.length} engineers, rounded up. ⭐ = removal goal met.`;
+    }
+
+    prevButton.addEventListener("click", () => { if (selectedWeek > 0) { selectedWeek -= 1; renderEngineerWeek(); } });
+    nextButton.addEventListener("click", () => { if (selectedWeek < weeks.length - 1) { selectedWeek += 1; renderEngineerWeek(); } });
+    function refreshDashboard() {
+      refreshExecutionHealth(localDay(new Date()));
+      renderEngineerWeek();
+    }
+    refreshDashboard();
+    setInterval(refreshDashboard, 60000);
+    window.addEventListener("focus", refreshDashboard);
+  </script>
+</body>
+</html>
