@@ -282,19 +282,6 @@
     .week-nav button:disabled { color: var(--cp-border-strong); cursor: not-allowed; }
     .week-chip { min-width: 140px; text-align: center; color: var(--cp-text-muted); font-size: 12px; }
     .week-chip strong { display: block; color: var(--cp-text); font-size: 14px; }
-    .impact-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-      padding: 16px;
-      border: 1px solid var(--cp-border);
-      border-radius: 0.625rem;
-      background: var(--cp-surface-soft);
-    }
-    .impact-stat { min-width: 0; }
-    .impact-stat span { display: block; color: var(--cp-text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-    .impact-stat strong { display: block; margin-top: 4px; font-size: 18px; }
     .engineer-chart { display: grid; gap: 16px; }
     .engineer-row { display: grid; grid-template-columns: 120px 1fr 76px; align-items: center; gap: 16px; }
     .engineer-name {
@@ -424,7 +411,6 @@
       .card-heading { flex-direction: column; align-items: flex-start; }
       .donut-wrap { width: 220px; height: 220px; }
       .engineer-row { grid-template-columns: 100px 1fr 68px; gap: 8px; }
-      .impact-summary { grid-template-columns: 1fr; }
       .detail-head, .nomination-copy { flex-direction: column; }
       .nomination-status { text-align: left; }
       .team-award-head, .team-progress-meta { flex-direction: column; }
@@ -523,11 +509,6 @@
               <div class="week-chip"><strong id="week-name">Week 2</strong><span id="week-range">Oct 5 — Oct 11</span></div>
               <button id="next-week" aria-label="Next week">→</button>
             </div>
-          </div>
-          <div class="impact-summary" aria-label="Impact nomination rules">
-            <div class="impact-stat"><span>Eligible weeks remaining</span><strong id="eligible-weeks">—</strong></div>
-            <div class="impact-stat"><span>Stars required</span><strong id="stars-required">—</strong></div>
-            <div class="impact-stat"><span>Nomination award</span><strong>$250</strong></div>
           </div>
           <div class="engineer-chart" id="engineer-chart"></div>
         </div>
@@ -796,8 +777,6 @@
       !EXCLUDED_NOMINATION_WEEKS.has(dateKey(week.start))
     );
     const nominationTarget = Math.ceil(nominationWeeks.length * .9);
-    document.getElementById("eligible-weeks").textContent = nominationWeeks.length;
-    document.getElementById("stars-required").textContent = `${nominationTarget} / ${nominationWeeks.length}`;
     const engineerChart = document.getElementById("engineer-chart");
     const prevButton = document.getElementById("prev-week");
     const nextButton = document.getElementById("next-week");
