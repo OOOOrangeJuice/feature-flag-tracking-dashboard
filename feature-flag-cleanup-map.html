@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feature Flag Cleanup Map</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button { font: inherit; }
+    a { color: inherit; }
+    .shell { max-width: 1560px; margin: 0 auto; padding: 32px; }
+    .page-nav {
+      display: flex;
+      gap: 4px;
+      width: fit-content;
+      margin-bottom: 28px;
+      padding: 4px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+    }
+    .page-nav a {
+      padding: 8px 12px;
+      border-radius: 0.625rem;
+      color: var(--cp-text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .page-nav a:hover { color: var(--cp-accent); }
+    .page-nav a[aria-current="page"] {
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+    }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--cp-accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 48px); line-height: 1.05; letter-spacing: -.03em; }
+    .subtitle { max-width: 720px; margin: 12px 0 0; color: var(--cp-text-muted); font-size: 16px; line-height: 1.55; }
+    .subtitle-row { display: flex; align-items: flex-start; gap: 10px; }
+    .info { position: relative; margin-top: 14px; flex: none; }
+    .info-btn {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1.5px solid var(--cp-text-muted);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--cp-text-muted);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .info-btn:hover, .info-btn:focus-visible, .info.open .info-btn {
+      border-color: var(--cp-accent);
+      color: var(--cp-accent);
+      outline: none;
+    }
+    .info-tip {
+      position: absolute;
+      top: 32px;
+      left: -12px;
+      z-index: 10;
+      width: min(460px, 80vw);
+      padding: 16px 18px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-panel-strong);
+      box-shadow: var(--cp-shadow);
+      color: var(--cp-text-muted);
+      font-size: 13px;
+      line-height: 1.55;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
+    }
+    .info-tip p { margin: 0 0 8px; }
+    .info-tip p:last-child { margin-bottom: 0; }
+    .info-tip strong { color: var(--cp-text); }
+    .info:hover .info-tip, .info:focus-within .info-tip, .info.open .info-tip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 12px 20px;
+      color: var(--cp-text-muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .line-key { width: 28px; height: 0; border-top: 2px solid var(--cp-border-strong); }
+    .line-key.dashed { border-top-style: dashed; }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .toolbar-copy { color: var(--cp-text-muted); font-size: 13px; }
+    .toolbar-copy strong { color: var(--cp-text); }
+    .controls { display: flex; gap: 8px; }
+    .control {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--cp-border);
+      border-radius: .625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      cursor: pointer;
+    }
+    .control:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+    .graph-viewport {
+      position: relative;
+      overflow: auto;
+      min-height: 720px;
+      border: 1px solid var(--cp-border);
+      border-radius: 16px;
+      background: var(--cp-bg-elevated);
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border);
+    }
+    .graph {
+      position: relative;
+      width: 1120px;
+      min-height: 1120px;
+      padding: 40px 54px 72px;
+      transform-origin: top left;
+    }
+    #edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    .edge { fill: none; stroke: var(--cp-border-strong); stroke-width: 2; }
+    .edge.context { stroke-dasharray: 7 7; }
+    .edge.dimmed { opacity: .16; }
+    .edge.active { stroke: var(--cp-accent); stroke-width: 3; opacity: 1; }
+    .node {
+      position: absolute;
+      width: 214px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px 16px;
+      border: 1px solid var(--cp-border);
+      border-radius: 14px;
+      background: var(--cp-surface);
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border);
+      cursor: pointer;
+      transition: border-color 160ms ease, opacity 160ms ease, transform 160ms ease;
+      text-align: left;
+    }
+    .node:hover, .node:focus-visible, .node.selected {
+      z-index: 2;
+      border-color: var(--cp-accent);
+      outline: none;
+      transform: translateY(-2px);
+    }
+    .node.dimmed { opacity: .3; }
+    .node.context-node { border-style: dashed; background: var(--cp-surface-soft); }
+    .node.tint-green { background: color-mix(in srgb, var(--cp-success) 14%, var(--cp-surface)); }
+    .node.tint-green:hover, .node.tint-green:focus-visible, .node.tint-green.selected { border-color: var(--cp-success); }
+    .node.tint-red { background: color-mix(in srgb, var(--cp-danger) 12%, var(--cp-surface)); }
+    .node .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .node .title { color: var(--cp-text); font-size: 13px; font-weight: 700; line-height: 1.35; letter-spacing: -.005em; }
+    .node-info {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+      padding: 0;
+      border: 1.25px solid var(--cp-text-soft);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--cp-text-soft);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+    }
+    .node-info:hover, .node-info:focus-visible { border-color: var(--cp-accent); color: var(--cp-accent); outline: none; }
+    .node .metric { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .node .metric:not(:last-child) { margin-bottom: 12px; }
+    .node .formula { color: var(--cp-text-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .node .value { color: var(--cp-text); font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+    .node-tip {
+      position: fixed;
+      z-index: 50;
+      max-width: 300px;
+      padding: 12px 14px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-panel-strong);
+      box-shadow: var(--cp-shadow);
+      color: var(--cp-text-muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 120ms ease, visibility 120ms;
+    }
+    .node-tip.visible { opacity: 1; visibility: visible; }
+    .node .badge {
+      align-self: flex-start;
+      margin-top: auto;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .note {
+      margin: 12px 4px 0;
+      color: var(--cp-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .note strong { color: var(--cp-text); }
+    @media (max-width: 800px) {
+      .shell { padding: 20px 12px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .legend { justify-content: flex-start; }
+      .toolbar-copy { display: none; }
+      .toolbar { justify-content: flex-end; }
+      .graph-viewport { min-height: 680px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .node { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav" aria-label="Project views">
+      <a href="feature-flag-cleanup-map.html" aria-current="page">Cleanup map</a>
+      <a href="index.html">Tracking dashboard</a>
+    </nav>
+    <header>
+      <div>
+        <p class="eyebrow">1JS + ECS cleanup portfolio</p>
+        <h1>Feature flag cleanup map</h1>
+        <div class="subtitle-row">
+          <p class="subtitle">A top-to-bottom view of how 3,541 ECS configurations narrow into 314 remaining 1JS cleanup flags and their next actions.</p>
+          <div class="info" id="info">
+            <button class="info-btn" id="info-btn" aria-label="How to read this map" aria-expanded="false" aria-controls="info-tip">!</button>
+            <div class="info-tip" id="info-tip" role="tooltip">
+              <p><strong>How to read this map.</strong> Read it from top to bottom. Each card shows a count and what it represents, and every card is a subset of the card above it.</p>
+              <p><strong>Lines.</strong> A solid grey line is an exact split, so the children add up to the parent. A dashed line links a reconciliation note that is not part of the split. Where two lines meet in one card, that card is a merge: two cards from one branch combine into a new parent, which starts the next branch. Select any card to highlight its full path.</p>
+              <p><strong>Layout.</strong> Cards that keep splitting stay in the left column. Cards that stop splitting sit to their right on the same row. Click any card to highlight its full path, and hover over or click the small "!" next to a card title to see what that group means.</p>
+              <p><strong>Units.</strong> The top card counts ECS configurations, which are not 1:1 with 1JS flags, because one configuration can hold several flights. Lower cards count flags.</p>
+              <p><strong>Snapshots.</strong> The counts from 2,256 down to 1,492 come from the August snapshot taken at the start of the cleanup cycle. They were captured on different days, so 1,781 + 466 is 9 short of 2,256.</p>
+              <p><strong>Active vs. stale rollouts.</strong> Both are incomplete ECS rollouts. An active rollout had an ECS update in the last four months and is still in development. A stale rollout has not been updated for more than four months, so its owner must decide whether to abandon it, roll it out, or leave it alone.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="legend" aria-label="Graph legend">
+        <span class="legend-item"><i class="line-key"></i>Exact inclusion</span>
+        <span class="legend-item"><i class="line-key dashed"></i>Reconciliation note</span>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar-copy"><strong>Tip:</strong> select a node to highlight its full path.</div>
+      <div class="controls" aria-label="Graph controls">
+        <button class="control" id="zoom-out" aria-label="Zoom out">−</button>
+        <button class="control" id="reset" aria-label="Reset zoom">100%</button>
+        <button class="control" id="zoom-in" aria-label="Zoom in">+</button>
+      </div>
+    </div>
+
+    <section class="graph-viewport" id="viewport" aria-label="Interactive feature flag inclusion graph">
+      <div class="graph" id="graph">
+        <svg id="edges" aria-hidden="true"></svg>
+      </div>
+    </section>
+  </main>
+  <div class="node-tip" id="node-tip" role="tooltip"></div>
+
+  <script>
+    const nodes = [
+      { id: "live", x: 100, y: 40, value: 3541, title: "ECS configurations", detail: "This is the total number of live ECS configurations across 1JS only, ECS only, and both. It is not a count of unique 1JS flags, because one ECS configuration can contain several flights.", className: "root" },
+      { id: "addressable", x: 100, y: 204, value: 2256, title: "Broadly addressable", detail: "These configurations are not in active development, so cleanup can be considered for them. The group includes both incomplete rollouts that have gone stale and rollouts that have already completed." },
+      { id: "active", x: 352, y: 204, value: 1285, title: "Active development", detail: "These rollouts are still incomplete and had an ECS update, such as a ring progression or a filter change, within the last four months. They are still being worked on, so they are not cleanup targets.", className: "tint-green" },
+      { id: "potential", x: 100, y: 368, value: 1781, title: "Potential 1JS + ECS work", detail: "These are the broadly addressable configurations that involve 1JS, after the ECS-only configurations were separated out. Cleaning them up may require changes in both 1JS and ECS." },
+      { id: "ecs-agreed", x: 352, y: 368, value: 466, title: "ECS-only, agreed for removal", detail: "These configurations exist only in ECS and have no 1JS code. They were agreed for removal, and they join the agreed-removal 1JS flags in the combined agreed-removal set below." },
+      { id: "snapshot", x: 604, y: 368, value: 9, title: "Snapshot drift", detail: "The counts at this level were taken on different days during the August snapshot. As a result, 1,781 plus 466 comes to 2,247, which is 9 short of 2,256. This card only explains that gap and is not a real group of flags.", className: "context-node" },
+      { id: "onejs-agreed", x: 100, y: 532, value: 1046, title: "Agreed-removal 1JS flags", detail: "These 1JS flags are 1JS-only or fully released, and they were agreed for removal at the start of the cycle. They join the ECS-only configurations in the combined agreed-removal set below." },
+      { id: "c1-open", x: 604, y: 532, value: 726, title: "Awaiting owner decision", detail: "These rollouts are incomplete and have had no ECS update for more than four months. The team asks each owner whether to abandon, roll out, or leave the flight alone. Some flights stay on purpose, such as debugging flights or flights not meant for every ring. None are cleaned up until the owner confirms." },
+      { id: "unscanned", x: 856, y: 532, value: 9, title: "Unscanned", detail: "These flags do not yet have a successful code scan, so it is unknown whether production references remain. A missing scan does not mean the flag is still in use. It only means there is no evidence either way yet." },
+      { id: "agreed", x: 100, y: 696, value: 1492, title: "Agreed removal flags", detail: "This is the full set of flags agreed for removal, which is the 1,046 agreed-removal 1JS flags plus the 466 ECS-only configurations. The rest of the map tracks how much of it is done, held, or still to do.", formula: "1,046 + 466 =", className: "merge-node" },
+      { id: "cleanup", x: 100, y: 860, value: 949, title: "Still requires cleanup", detail: "These agreed flags still need cleanup work in 1JS, in ECS, or in both. They are the active backlog.", className: "tint-red", badge: "Total removal scope" },
+      { id: "no-action", x: 352, y: 860, value: 472, title: "No remaining action", detail: "These agreed flags no longer need any 1JS or ECS work. Most were already cleaned up, sometimes by other teams, or otherwise stopped needing cleanup." },
+      { id: "held", x: 604, y: 860, value: 71, title: "Held", detail: "These flags are paused instead of cleaned up. Each one has moved to active rollout, has an unknown scan status, is blocked by a dashboard dependency, or is now an experiment or default-only flag." },
+      { id: "onejs-only", x: 100, y: 1024, value: 26, title: "1JS-only feature flags", detail: "These flags need code removal in 1JS only. No ECS change is required." },
+      { id: "both", x: 352, y: 1024, value: 288, title: "1JS + ECS feature flags", detail: "These flags need both 1JS code removal and an ECS configuration change." },
+      { id: "ecs-only", x: 604, y: 1024, value: 635, title: "ECS-only feature flags", detail: "These flags need only an ECS configuration change. No 1JS code change is required, so they are not part of the 1JS focus below." },
+      { id: "focus", x: 100, y: 1188, value: 314, title: "Remaining 1JS cleanup", detail: "This is the 1JS cleanup backlog for the next cycle (C5): the 26 1JS-only feature flags plus the 288 flags that need both 1JS and ECS work. The number may shift slightly as more abandonment responses come in.", formula: "26 + 288 =", className: "merge-node tint-red", badge: "C5 removal scope" },
+      { id: "abandon", x: 100, y: 1352, value: 177, title: "Abandon", detail: "These stale rollouts are candidates for abandonment. Each needs a fresh confirmation from its ECS owner before the code is removed through the normal pull-request process.", className: "action-node" },
+      { id: "b1", x: 352, y: 1352, value: 103, title: "Complete rollout (SSR)", detail: "These flags are fully rolled out and involve SSR only, so the flag checks can be removed from 1JS code. Each removal still goes through a pull request, review, and merge.", className: "action-node" },
+      { id: "b2", x: 604, y: 1352, value: 20, title: "Complete rollout (CSR)", detail: "These flags are fully rolled out but involve CSR, which needs extra coordination before the flag checks can be removed from 1JS code.", className: "action-node" },
+      { id: "a2", x: 856, y: 1352, value: 14, title: "Definition-only remnants", detail: "These flags appear only in the 1JS feature-flag definition files and are not referenced anywhere in application code. Cleaning them up means deleting their definitions.", className: "action-node" }
+    ];
+
+    const edges = [
+      { from: "live", to: "addressable" }, { from: "live", to: "active" },
+      { from: "addressable", to: "potential" }, { from: "addressable", to: "ecs-agreed" },
+      { from: "addressable", to: "snapshot", type: "context" },
+      { from: "potential", to: "onejs-agreed" }, { from: "potential", to: "c1-open" }, { from: "potential", to: "unscanned" },
+      { from: "onejs-agreed", to: "agreed", type: "merge" },
+      { from: "ecs-agreed", to: "agreed", type: "merge" },
+      { from: "agreed", to: "cleanup" }, { from: "agreed", to: "no-action" }, { from: "agreed", to: "held" },
+      { from: "cleanup", to: "onejs-only" }, { from: "cleanup", to: "both" }, { from: "cleanup", to: "ecs-only" },
+      { from: "onejs-only", to: "focus", type: "merge" }, { from: "both", to: "focus", type: "merge" },
+      { from: "focus", to: "abandon" }, { from: "focus", to: "b1" }, { from: "focus", to: "b2" }, { from: "focus", to: "a2" }
+    ];
+
+    const graph = document.getElementById("graph");
+    const svg = document.getElementById("edges");
+    const nodeMap = new Map();
+    const parentMap = new Map();
+    const childMap = new Map();
+
+    const nodeTip = document.getElementById("node-tip");
+    let pinnedTip = null;
+    function showNodeTip(icon, text) {
+      nodeTip.textContent = text;
+      nodeTip.classList.add("visible");
+      const r = icon.getBoundingClientRect();
+      const w = nodeTip.offsetWidth;
+      const h = nodeTip.offsetHeight;
+      const left = Math.min(Math.max(8, r.left + r.width / 2 - 24), window.innerWidth - w - 8);
+      const below = r.bottom + 8;
+      nodeTip.style.left = `${left}px`;
+      nodeTip.style.top = `${below + h > window.innerHeight - 8 ? r.top - h - 8 : below}px`;
+    }
+    function hideNodeTip(force) {
+      if (pinnedTip && !force) return;
+      if (force) pinnedTip = null;
+      nodeTip.classList.remove("visible");
+    }
+
+    nodes.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = `node ${item.className || ""}`;
+      card.id = `node-${item.id}`;
+      card.style.left = `${item.x - 24}px`;
+      card.style.top = `${item.y}px`;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `${item.title}: ${item.value.toLocaleString()}`);
+      card.innerHTML = `<span class="title-row"><span class="title">${item.title}</span><button class="node-info" aria-label="About ${item.title}">!</button></span><span class="metric">${item.formula ? `<span class="formula">${item.formula}</span>` : ""}<span class="value">${item.value.toLocaleString()}</span></span>${item.badge ? `<span class="badge">${item.badge}</span>` : ""}`;
+      const icon = card.querySelector(".node-info");
+      icon.addEventListener("mouseenter", () => { if (!pinnedTip) showNodeTip(icon, item.detail); });
+      icon.addEventListener("mouseleave", () => hideNodeTip(false));
+      icon.addEventListener("focus", () => { if (!pinnedTip) showNodeTip(icon, item.detail); });
+      icon.addEventListener("blur", () => hideNodeTip(false));
+      icon.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (pinnedTip === icon) { hideNodeTip(true); return; }
+        pinnedTip = icon;
+        showNodeTip(icon, item.detail);
+      });
+      card.addEventListener("click", () => selectNode(item.id));
+      card.addEventListener("keydown", (event) => {
+        if (event.target === card && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); selectNode(item.id); }
+      });
+      graph.appendChild(card);
+      nodeMap.set(item.id, card);
+    });
+    document.addEventListener("click", (event) => { if (!event.target.closest(".node-info")) hideNodeTip(true); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") hideNodeTip(true); });
+    document.getElementById("viewport").addEventListener("scroll", () => hideNodeTip(true));
+    window.addEventListener("scroll", () => hideNodeTip(true), { passive: true });
+
+    edges.forEach((edge) => {
+      if (!parentMap.has(edge.to)) parentMap.set(edge.to, []);
+      if (!childMap.has(edge.from)) childMap.set(edge.from, []);
+      parentMap.get(edge.to).push(edge.from);
+      childMap.get(edge.from).push(edge.to);
+    });
+
+    const ROW_GAP = 64;
+    function layoutRows() {
+      const rows = [...new Set(nodes.map((node) => node.y))].sort((a, b) => a - b);
+      let top = rows[0];
+      rows.forEach((rowY) => {
+        const rowCards = nodes.filter((node) => node.y === rowY).map((node) => nodeMap.get(node.id));
+        const titleRows = rowCards.map((card) => card.querySelector(".title-row"));
+        rowCards.forEach((card) => { card.style.minHeight = ""; });
+        titleRows.forEach((row) => { row.style.minHeight = ""; });
+        const titleHeight = Math.max(...titleRows.map((row) => row.offsetHeight));
+        titleRows.forEach((row) => { row.style.minHeight = `${titleHeight}px`; });
+        const rowHeight = Math.max(...rowCards.map((card) => card.offsetHeight));
+        rowCards.forEach((card) => { card.style.top = `${top}px`; card.style.minHeight = `${rowHeight}px`; });
+        top += rowHeight + ROW_GAP;
+      });
+    }
+
+    function drawEdges() {
+      layoutRows();
+      svg.innerHTML = "";
+      edges.forEach((edge, index) => {
+        const from = nodeMap.get(edge.from);
+        const to = nodeMap.get(edge.to);
+        const x1 = from.offsetLeft + from.offsetWidth / 2;
+        const y1 = from.offsetTop + from.offsetHeight;
+        const x2 = to.offsetLeft + to.offsetWidth / 2;
+        const y2 = to.offsetTop;
+        // Edges that skip rows drop straight down through the empty column, then curve into the target.
+        const bendY = Math.max(y1, y2 - ROW_GAP);
+        const midY = bendY + (y2 - bendY) / 2;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${x1} ${y1} L ${x1} ${bendY} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+        path.setAttribute("class", `edge ${edge.type || ""}`);
+        path.dataset.index = index;
+        svg.appendChild(path);
+      });
+      graph.style.minHeight = `${Math.max(...[...nodeMap.values()].map((el) => el.offsetTop + el.offsetHeight)) + 72}px`;
+    }
+
+    function collectConnected(start, map, found = new Set()) {
+      (map.get(start) || []).forEach((id) => {
+        if (!found.has(id)) {
+          found.add(id);
+          collectConnected(id, map, found);
+        }
+      });
+      return found;
+    }
+
+    function selectNode(id) {
+      const selected = nodeMap.get(id);
+      if (selected.classList.contains("selected")) {
+        clearSelection();
+        return;
+      }
+      const connected = new Set([id, ...collectConnected(id, parentMap), ...collectConnected(id, childMap)]);
+      nodeMap.forEach((node, nodeId) => {
+        node.classList.toggle("selected", nodeId === id);
+        node.classList.toggle("dimmed", !connected.has(nodeId));
+      });
+      svg.querySelectorAll(".edge").forEach((path, index) => {
+        const edge = edges[index];
+        const active = connected.has(edge.from) && connected.has(edge.to);
+        path.classList.toggle("active", active);
+        path.classList.toggle("dimmed", !active);
+      });
+    }
+
+    function clearSelection() {
+      nodeMap.forEach((node) => node.classList.remove("selected", "dimmed"));
+      svg.querySelectorAll(".edge").forEach((path) => path.classList.remove("active", "dimmed"));
+    }
+
+    let zoom = 1;
+    const viewport = document.getElementById("viewport");
+    function centerRoot() {
+      const root = nodeMap.get("live");
+      viewport.scrollLeft = (root.offsetLeft + root.offsetWidth / 2) * zoom - viewport.clientWidth / 2;
+      viewport.scrollTop = 0;
+    }
+    function setZoom(next) {
+      zoom = Math.min(1.25, Math.max(.65, next));
+      graph.style.transform = `scale(${zoom})`;
+      viewport.style.setProperty("--scaled-height", `${graph.scrollHeight * zoom}px`);
+      document.getElementById("reset").textContent = `${Math.round(zoom * 100)}%`;
+    }
+    document.getElementById("zoom-in").addEventListener("click", () => setZoom(zoom + .1));
+    document.getElementById("zoom-out").addEventListener("click", () => setZoom(zoom - .1));
+    document.getElementById("reset").addEventListener("click", () => {
+      setZoom(1);
+      centerRoot();
+    });
+    graph.addEventListener("click", (event) => { if (event.target === graph || event.target === svg) clearSelection(); });
+    const info = document.getElementById("info");
+    const infoBtn = document.getElementById("info-btn");
+    function setInfoOpen(open) {
+      info.classList.toggle("open", open);
+      infoBtn.setAttribute("aria-expanded", String(open));
+    }
+    infoBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setInfoOpen(!info.classList.contains("open"));
+    });
+    document.addEventListener("click", (event) => { if (!info.contains(event.target)) setInfoOpen(false); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") setInfoOpen(false); });
+    window.addEventListener("resize", drawEdges);
+    drawEdges();
+    requestAnimationFrame(centerRoot);
+  </script>
+</body>
+</html>
