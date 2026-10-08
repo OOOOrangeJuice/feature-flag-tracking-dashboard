@@ -340,6 +340,29 @@
     }
     .star-week strong { display: block; margin-bottom: 3px; color: var(--cp-text); font-size: 14px; }
     .star-week.earned { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+    .team-award-layout { display: grid; gap: 20px; }
+    .team-award-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .team-award-copy { max-width: 760px; margin: 8px 0 0; color: var(--cp-text-muted); font-size: 13px; line-height: 1.55; }
+    .team-award-result {
+      flex: none;
+      padding: 10px 14px;
+      border: 1px solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+    }
+    .team-award-result span { display: block; margin-top: 2px; color: var(--cp-text-muted); font-size: 11px; font-weight: 500; }
+    .team-progress-meta { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; }
+    .team-progress-meta span { color: var(--cp-text-muted); }
+    .team-progress-meta strong { color: var(--cp-text); }
     .info { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
     .info-btn {
       width: 16px;
@@ -404,6 +427,8 @@
       .impact-summary { grid-template-columns: 1fr; }
       .detail-head, .nomination-copy { flex-direction: column; }
       .nomination-status { text-align: left; }
+      .team-award-head, .team-progress-meta { flex-direction: column; }
+      .team-award-result { width: 100%; text-align: left; }
     }
     @media (prefers-reduced-motion: reduce) {
       .seg, .popover { transition: none; }
@@ -505,6 +530,28 @@
             <div class="impact-stat"><span>Nomination award</span><strong>$250</strong></div>
           </div>
           <div class="engineer-chart" id="engineer-chart"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="team-award-title">
+        <div class="card-body team-award-layout">
+          <div class="team-award-head">
+            <div>
+              <h2 id="team-award-title">Team Award<span class="info below" id="team-award-info"><button type="button" class="info-btn" aria-label="How the team award is calculated" aria-expanded="false" aria-describedby="team-award-info-tip">!</button><span class="info-tip" id="team-award-info-tip" role="tooltip"><p><strong>Team weekly star</strong> = total team completions reached that week&rsquo;s Required Weekly Pace.</p><p><strong>Mixed Award Nomination</strong> = the team earned stars in at least 90% of remaining eligible weeks.</p><p>Thanksgiving week and the two Christmas weeks are excluded.</p></span></span></h2>
+              <p class="team-award-copy">A shared goal that recognizes the team&rsquo;s collective delivery. Everyone contributes to the same weekly pace and celebrates the same result.</p>
+            </div>
+            <div class="team-award-result" id="team-award-result">In progress<span>Mixed Award Nomination</span></div>
+          </div>
+          <div>
+            <div class="team-progress-meta">
+              <span><strong id="team-stars-earned">0</strong> of <strong id="team-stars-required">—</strong> required stars earned</span>
+              <span>90% of <strong id="team-eligible-weeks">—</strong> eligible weeks</span>
+            </div>
+            <div class="nomination-track" id="team-award-progress" role="progressbar" aria-label="Team Mixed Award Nomination progress" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+              <div class="nomination-fill" id="team-award-progress-fill"></div>
+            </div>
+            <div class="star-weeks" id="team-star-weeks"></div>
+          </div>
         </div>
       </section>
     </div>
@@ -772,6 +819,42 @@
       return { results, earned: results.filter(result => result.earned).length };
     }
 
+    function renderTeamAward(today) {
+      const results = nominationWeeks.map(week => {
+        const pace = week.end < today && week.remainingAtStart !== undefined
+          ? calculatePace(week.remainingAtStart, week.start)
+          : calculatePace(TOTAL - completedFlags, today);
+        const target = pace.weeklyTarget;
+        const isFuture = week.start > today;
+        return {
+          week,
+          target,
+          isFuture,
+          earned: !isFuture && target !== null && target > 0 && week.complete >= target
+        };
+      });
+      const earned = results.filter(result => result.earned).length;
+      const achieved = earned >= nominationTarget;
+      const progress = nominationTarget === 0 ? 100 : Math.min(earned / nominationTarget * 100, 100);
+      document.getElementById("team-stars-earned").textContent = earned;
+      document.getElementById("team-stars-required").textContent = nominationTarget;
+      document.getElementById("team-eligible-weeks").textContent = nominationWeeks.length;
+      document.getElementById("team-award-result").innerHTML = achieved
+        ? "Nomination earned<span>Mixed Award Nomination for the whole team</span>"
+        : `${Math.max(nominationTarget - earned, 0)} more stars needed<span>Mixed Award Nomination for the whole team</span>`;
+      const progressElement = document.getElementById("team-award-progress");
+      progressElement.setAttribute("aria-valuemax", nominationTarget);
+      progressElement.setAttribute("aria-valuenow", earned);
+      document.getElementById("team-award-progress-fill").style.width = `${progress}%`;
+      document.getElementById("team-star-weeks").innerHTML = results.map(result => {
+        const status = result.earned ? "⭐" : result.isFuture ? "Upcoming" : "Not earned";
+        const detailText = result.isFuture || result.target === null
+          ? status
+          : `${result.week.complete} / ${result.target}`;
+        return `<div class="star-week ${result.earned ? "earned" : ""}"><strong>${result.earned ? "⭐" : "○"}</strong>${result.week.range}<br>${detailText}</div>`;
+      }).join("");
+    }
+
     function renderEngineerWeek() {
       const week = weeks[selectedWeek];
       const today = localDay(new Date());
@@ -837,8 +920,10 @@
     prevButton.addEventListener("click", () => { if (selectedWeek > 0) { selectedWeek -= 1; renderEngineerWeek(); } });
     nextButton.addEventListener("click", () => { if (selectedWeek < weeks.length - 1) { selectedWeek += 1; renderEngineerWeek(); } });
     function refreshDashboard() {
-      refreshExecutionHealth(localDay(new Date()));
+      const today = localDay(new Date());
+      refreshExecutionHealth(today);
       renderEngineerWeek();
+      renderTeamAward(today);
     }
     refreshDashboard();
     setInterval(refreshDashboard, 60000);
